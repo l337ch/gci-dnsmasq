@@ -34,10 +34,35 @@ This project will also end up being packaged as a Helm Chart eventually.
 ## Deployment
 ```
 $ kubectl create -f gci-dnsmasq.yaml
-$ rastop:gci-dnsmasq sostheim$ kubectl get po,deployment -l app=gci-dnsmasq
+deployment "gci-dnsmasq" created
+
+$ kubectl get po,deployment -l app=gci-dnsmasq
 NAME                              READY     STATUS    RESTARTS   AGE
 po/gci-dnsmasq-2691091649-mgg5b   1/1       Running   0          8m
 
 NAME                 DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 deploy/gci-dnsmasq   1         1         1            1           8m
+
+$ kubectl expose -f gci-dnsmasq.yaml 
+service "gci-dnsmasq" exposed
+
+$ kubectl get po,deployment,ep,svc -l app=gci-dnsmasq
+NAME                              READY     STATUS    RESTARTS   AGE
+po/gci-dnsmasq-1456860450-g2x6x   1/1       Running   0          2m
+
+NAME                 DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+deploy/gci-dnsmasq   1         1         1            1           2m
+
+NAME             ENDPOINTS       AGE
+ep/gci-dnsmasq   10.64.7.96:53   16s
+
+NAME              CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+svc/gci-dnsmasq   10.67.245.64   <none>        53/TCP    16s
+
+$ kubectl logs gci-dnsmasq-1456860450-g2x6x
+gci-dnsmasq: DNSMASQ_CMD_ARGS: -k -d --no-resolv
+gci-dnsmasq: metadata server as resolver ip: 169.254.169.254
+gci-dnsmasq: kube-dns service cluster ip (vip): 10.67.240.10
+gci-dnsmasq: kube-dns nameserver present in /etc/resolv.conf: true
+gci-dnsmasq: starting dnsmasq: cmd: /usr/sbin/dnsmasq argv: [/usr/sbin/dnsmasq --keep-in-foreground --no-daemon --server=/**redacted**/10.40.240.70]
 ```

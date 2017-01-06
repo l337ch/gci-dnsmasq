@@ -21,25 +21,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net"
+	"os"
 	"os/exec"
-	"strings"
 )
 
 const (
-	// GCI Metadata Server Default Values
-	gciMetadataFlavorHeader      = "Metadata-Flavor"
-	gciMetadataFlavorHeaderValue = "Google"
-	gciDefaultScheme             = "http"
-	gciDefaultMetadataHost       = "metadata.google.internal"
-
-	// Our primary attribute collection of interest.
-	gciDefaultURI = gciDefaultScheme + "://" + gciDefaultMetadataHost
-
-	kubednsSvcName   = "kube-dns"
-	kubednsNamespace = ".kube-system"
-	kubernetesSvc    = ".svc"
-	kubernetesDomain = ".cluster.local."
-	kubednsQuestion  = kubednsSvcName + kubednsNamespace + kubernetesSvc + kubernetesDomain
+	// DNS names we resolve
+	gciDefaultMetadataHost = "metadata.google.internal"
+	kubednsSvcName         = "kube-dns"
+	kubednsNamespace       = ".kube-system"
+	kubernetesSvc          = ".svc"
+	kubernetesDomain       = ".cluster.local"
+	kubednsHostname        = kubednsSvcName + kubednsNamespace + kubernetesSvc + kubernetesDomain
 
 	etcResolvConf = "/etc/resolv.conf"
 )
@@ -49,16 +42,20 @@ const (
 	argForeground = "--keep-in-foreground"
 	argNoDaemon   = "--no-daemon"
 	argNoResolv   = "--no-resolv"
-	argServer     = "--server=/<domain>/<dns server ip>"
+	argServer     = "--server=/zonarsystems.net/10.40.240.70"
 )
 
 var (
 	dnsClusterIP   string
 	metaResolverIP string
+	envArgs        string
 )
 
 func init() {
 	log.SetFlags(0)
+
+	envArgs := os.Getenv("DNSMASQ_CMD_ARGS")
+	log.Print(fmt.Sprintf("gci-dnsmasq: DNSMASQ_CMD_ARGS: %s", envArgs))
 }
 
 func getDNSSingleIP(question string) string {
@@ -69,21 +66,26 @@ func getDNSSingleIP(question string) string {
 	return addrs[0]
 }
 
-// ValidateResolvConf checks to ensure that the current metadata
-// servers IP address is present as a nameserver entry.
-func ValidateResolvConf(metaIP string) bool {
+// ValidateResolvConf checks to ensure that a desired nameserver entry exists
+func ValidateResolvConf(nameserverIP string) bool {
 	// Validations:
 	// 0 - /etc/resolv.conf is present and not empty
-	// 1 - at least one 'nameserver' is present for the metadata server's IP
+	// 1 - at least one 'nameserver' is present for the nameserver IP argument
 	// 2 - TODO: return a list of other nameservers found that don't match
-
 	fileData, err := ioutil.ReadFile(etcResolvConf)
 	if err != nil {
-		log.Print(fmt.Sprintf("gci-dnsmas: ValidateResolveConf error: %v", err))
+		log.Print(fmt.Sprintf("gci-dnsmasq: ValidateResolveConf error: %v", err))
 		return false
 	}
-	for _, fileLine := range strings.Split(string(fileData), "\n") {
-		if strings.Contains(fileLine, metaIP) {
+
+	// -- debug cruft
+	// log.Print(">>>>>>>>>>>>>>>>>>>>>>>>> /etc/resolv.conf >>>>>>>>>>>>>>>>>>>>>>>>>\n")
+	// log.Print(fmt.Sprintf("%s", string(fileData)))
+	// log.Print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+
+	matchIP := []byte(nameserverIP)
+	for _, fileLine := range bytes.Split(fileData, []byte("\n")) {
+		if bytes.Contains(fileLine, matchIP) {
 			return true
 		}
 	}
@@ -93,21 +95,30 @@ func ValidateResolvConf(metaIP string) bool {
 func main() {
 	// Query DNS for the current kube-dns service cluster ip
 	// Yes, we need DNS to, configure DNS... shhhh....
-	dnsClusterIP = getDNSSingleIP(kubednsQuestion)
-	if len(dnsClusterIP) == 0 {
-		log.Fatal("Can't continue without a valid value for kube-dns service ClusterIP Range CIDR")
-	}
-	log.Print(fmt.Sprintf("gci-dnsmasq: kube-dns service cluster ip: %s\n", dnsClusterIP))
-
-	// Query DNS for the current kube-dns service cluster ip
-	// Yes, we need DNS to, configure DNS... shhhh....
 	metaResolverIP = getDNSSingleIP(gciDefaultMetadataHost)
-	if len(dnsClusterIP) == 0 {
-		log.Fatal("Can't continue without a valid value for kube-dns service ClusterIP Range CIDR")
+	if len(metaResolverIP) == 0 {
+		log.Fatal(fmt.Sprintf("gci-dnsmasq: failed to resolve: %s, can't continue without a valid value for DNS resolver for forwarding",
+			gciDefaultMetadataHost))
 	}
 	log.Print(fmt.Sprintf("gci-dnsmasq: metadata server as resolver ip: %s\n", metaResolverIP))
 
+	dnsClusterIP = getDNSSingleIP(kubednsHostname)
+	if len(dnsClusterIP) == 0 {
+		log.Fatal(fmt.Sprintf("gci-dnsmasq: failed to resolve: %s, can't continue without a valid value for kube-dns service ClusterIP",
+			kubednsHostname))
+	}
+	log.Print(fmt.Sprintf("gci-dnsmasq: kube-dns service cluster ip (vip): %s\n", dnsClusterIP))
+
+	isPresent := ValidateResolvConf(dnsClusterIP)
+	log.Print(fmt.Sprintf("gci-dnsmasq: kube-dns nameserver present in /etc/resolv.conf: %t\n", isPresent))
+
 	cmd := exec.Command(cmdDnsmasq, argForeground, argNoDaemon, argServer)
+	if len(envArgs) != 0 {
+		cmd = exec.Command(cmdDnsmasq, envArgs)
+	}
+
+	log.Print(fmt.Sprintf("gci-dnsmasq: starting dnsmasq: cmd: %s argv: %v", cmdDnsmasq, cmd.Args))
+
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 	cmd.Stdout = stdoutBuf

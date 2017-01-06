@@ -17,5 +17,8 @@ spec:
       containers:
       - name: gci-dnsmasq
         image: quay.io/samsung_cnct/gci-dnsmasq
+        env:
+        - name: DNSMASQ_CMD_ARGS
+          value: "-k -d --no-resolv"
         ports:
         - containerPort: 53
