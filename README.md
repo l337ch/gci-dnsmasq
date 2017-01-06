@@ -1,4 +1,4 @@
-# gci-iptables-conf-agent
+# gci-dnsmasq
 
 For GKE managed Kubernetes clusters it is extremely difficult to manage DNS
 domains for a) Private IP (RFC1918) spaces connected via Cloud VPN, b) split
@@ -19,7 +19,7 @@ $ mkdir -p "${GOPATH}/src/github.com/samsung-cnct"
 $ cd "${GOPATH}/src/github.com/samsung-cnct"
 $ git clone https://github.com/samsung-cnct/gci-dnsmasq.git
 $ cd gci-dnsmasq
-$ CGO_ENABLED=0 GOOS=linux godep go build -a -ldflags '-w' -o gci_iptables_conf_agent
+$ CGO_ENABLED=0 GOOS=linux godep go build -a -ldflags '-w' -o gci_dnsmasq
 ```
 ## Building the Docker Image
 Build and push the docker image, replacing Quay with your target registry.
