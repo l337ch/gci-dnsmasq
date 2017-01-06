@@ -1,0 +1,21 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: gci-dnsmasq 
+  labels:
+    name: gci-dnsmasq
+    app: gci-dnsmasq
+    version: 0.1.0
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: gci-dnsmasq
+        version: 0.1.0
+    spec:
+      containers:
+      - name: gci-dnsmasq
+        image: quay.io/samsung_cnct/gci-dnsmasq
+        ports:
+        - containerPort: 53
