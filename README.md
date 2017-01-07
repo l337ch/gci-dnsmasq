@@ -85,5 +85,5 @@ Example (excerpt from Deployment spec yaml):
         image: quay.io/samsung_cnct/gci-dnsmasq
         env:
         - name: DNSMASQ_CMD_ARGS
-          value: "--keep-in-foreground --no-resolv --server=/example.com/10.0.0.10"
+          value: "--keep-in-foreground,--no-resolv,--server=/example.com/10.0.0.10"
 ```
