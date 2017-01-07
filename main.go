@@ -42,7 +42,7 @@ const (
 	argForeground = "--keep-in-foreground"
 	argNoDaemon   = "--no-daemon"
 	argNoResolv   = "--no-resolv"
-	argServer     = "--server=/zonarsystems.net/10.40.240.70"
+	argServer     = "--server=/redacted.com/10.10.10.10"
 )
 
 var (
@@ -112,7 +112,7 @@ func main() {
 	isPresent := ValidateResolvConf(dnsClusterIP)
 	log.Print(fmt.Sprintf("gci-dnsmasq: kube-dns nameserver present in /etc/resolv.conf: %t\n", isPresent))
 
-	cmd := exec.Command(cmdDnsmasq, argForeground, argNoDaemon, argServer)
+	cmd := exec.Command(cmdDnsmasq, argForeground, argServer)
 	if len(envArgs) != 0 {
 		cmd = exec.Command(cmdDnsmasq, envArgs)
 	}
