@@ -2,12 +2,12 @@
 
 For GKE managed Kubernetes clusters it is extremely difficult to manage DNS
 domains for a) Private IP (RFC1918) spaces connected via Cloud VPN, b) split
-horizon resolution for on premise hosted services (privates side of VPN), 
+horizon resolution for on premise hosted services (private side of VPN), 
 versus GKE resident services.  
 
 ## Current Solution
 
-The solution provided here is a small Go application that runs dnsmas as a 
+The solution provided here is a small Go application that runs dnsmasq as a 
 Deployment in the GKE Kubernetes cluster and is inserted as a shim in the
 node hosts resolv.conf to intercept specific domains that require special
 handling.
@@ -60,9 +60,30 @@ NAME              CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
 svc/gci-dnsmasq   10.67.245.64   <none>        53/TCP    16s
 
 $ kubectl logs gci-dnsmasq-1456860450-g2x6x
-gci-dnsmasq: DNSMASQ_CMD_ARGS: -k -d --no-resolv
+gci-dnsmasq: DNSMASQ_CMD_ARGS: 
 gci-dnsmasq: metadata server as resolver ip: 169.254.169.254
 gci-dnsmasq: kube-dns service cluster ip (vip): 10.67.240.10
 gci-dnsmasq: kube-dns nameserver present in /etc/resolv.conf: true
 gci-dnsmasq: starting dnsmasq: cmd: /usr/sbin/dnsmasq argv: [/usr/sbin/dnsmasq --keep-in-foreground --no-daemon --server=/**redacted**/10.40.240.70]
+```
+
+## Configuration
+The application can't compile sensible defaults for any set of domains that 
+could be resolved and/or forwarded.  There are defaults that will allow the 
+application to start up, and possible be the target of test requests, but 
+they are insufficent for use.
+
+Currently the main way to configure the application is by environment variable.
+The following values are understood:
+* DNSMASQ_CMD_ARGS - a comma separated list of arguments to passthrough to dnsmasq on startup.
+
+Example (excerpt from Deployment spec yaml):
+```
+    spec:
+      containers:
+      - name: gci-dnsmasq
+        image: quay.io/samsung_cnct/gci-dnsmasq
+        env:
+        - name: DNSMASQ_CMD_ARGS
+          value: "--keep-in-foreground --no-resolv --server=/example.com/10.0.0.10"
 ```
