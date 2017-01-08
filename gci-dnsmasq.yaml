@@ -19,6 +19,6 @@ spec:
         image: quay.io/samsung_cnct/gci-dnsmasq
         env:
         - name: DNSMASQ_CMD_ARGS
-          value: "-k -d --no-resolv"
+          value: "--keep-in-foreground,--no-daemon,--server=/redacted.net/10.10.10.10"
         ports:
         - containerPort: 53

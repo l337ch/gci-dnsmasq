@@ -23,6 +23,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 )
 
 const (
@@ -53,9 +54,7 @@ var (
 
 func init() {
 	log.SetFlags(0)
-
-	envArgs := os.Getenv("DNSMASQ_CMD_ARGS")
-	log.Print(fmt.Sprintf("gci-dnsmasq: DNSMASQ_CMD_ARGS: %s", envArgs))
+	envArgs = os.Getenv("DNSMASQ_CMD_ARGS")
 }
 
 func getDNSSingleIP(question string) string {
@@ -64,6 +63,17 @@ func getDNSSingleIP(question string) string {
 		return ""
 	}
 	return addrs[0]
+}
+
+func getArgString(arg0 bool) []string {
+	argv := make([]string, 2)
+	if arg0 {
+		argv[0] = cmdDnsmasq
+	}
+	if len(envArgs) != 0 {
+		return append(argv, strings.Split(envArgs, ",")...)
+	}
+	return append(argv, []string{argForeground, argNoDaemon, argServer}...)
 }
 
 // ValidateResolvConf checks to ensure that a desired nameserver entry exists
@@ -112,19 +122,15 @@ func main() {
 	isPresent := ValidateResolvConf(dnsClusterIP)
 	log.Print(fmt.Sprintf("gci-dnsmasq: kube-dns nameserver present in /etc/resolv.conf: %t\n", isPresent))
 
-	cmd := exec.Command(cmdDnsmasq, argForeground, argServer)
-	if len(envArgs) != 0 {
-		cmd = exec.Command(cmdDnsmasq, envArgs)
-	}
-
-	log.Print(fmt.Sprintf("gci-dnsmasq: starting dnsmasq: cmd: %s argv: %v", cmdDnsmasq, cmd.Args))
-
+	cmd := exec.Command(cmdDnsmasq, getArgString(false)...)
 	stdoutBuf := &bytes.Buffer{}
 	stderrBuf := &bytes.Buffer{}
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
+	log.Print(fmt.Sprintf("gci-dnsmasq: starting dnsmasq: cmd: %s argv: %v", cmdDnsmasq, cmd.Args))
 	if err := cmd.Run(); err != nil {
 		log.Fatal(fmt.Sprintf("gci-dnsmasq: error return: %v, stderr: %s, stdout: %s", err, stderrBuf, stdoutBuf))
+	} else {
+		log.Print(fmt.Sprintf("gci-dnsmasq: dnsmasq: %s", stdoutBuf))
 	}
-	log.Print(fmt.Sprintf("gci-dnsmasq: dnsmasq: %s", stdoutBuf))
 }
